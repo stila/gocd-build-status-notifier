@@ -23,6 +23,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.kohsuke.github.GHCommitState;
 import org.kohsuke.github.GHRepository;
 import org.kohsuke.github.GitHub;
+import org.kohsuke.github.GitHubBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -113,7 +114,7 @@ public class GitHubProvider extends DefaultProvider {
             if (endPointIsAvailable(endPointToUse)) {
                 github = GitHub.connectUsingOAuth(endPointToUse, oauthAccessTokenToUse);
             } else {
-                github = GitHub.connectUsingOAuth(oauthAccessTokenToUse);
+                github = new GitHubBuilder().withAppInstallationToken(oauthAccessTokenToUse).build();
             }
         }
         if (github == null) {
