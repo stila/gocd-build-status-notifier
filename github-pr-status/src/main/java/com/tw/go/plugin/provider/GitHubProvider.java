@@ -32,6 +32,7 @@ public class GitHubProvider extends DefaultProvider {
     private static Logger LOGGER = Logger.getLoggerFor(GitHubProvider.class);
     public static final String PLUGIN_ID = "github.pr.status";
     public static final String GITHUB_PR_POLLER_PLUGIN_ID = "github.pr";
+    public static final String GITHUB_HOST_PATTERN = "github.com";
 
     public GitHubProvider() {
         super(new DefaultPluginConfigurationView());
@@ -45,6 +46,11 @@ public class GitHubProvider extends DefaultProvider {
     @Override
     public String pollerPluginId() {
         return GITHUB_PR_POLLER_PLUGIN_ID;
+    }
+
+    @Override
+    public String pollerCheckHostName() {
+        return GITHUB_HOST_PATTERN;
     }
 
     @Override

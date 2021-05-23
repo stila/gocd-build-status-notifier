@@ -153,11 +153,8 @@ public abstract class BuildStatusNotifierPlugin implements GoPlugin {
 
             List<Map> materialRevisions = (List<Map>) pipeline.get("build-cause");
             for (Map materialRevision : materialRevisions) {
-                Map material = (Map) materialRevision.get("material");
-                if (isMaterialOfType(material, provider.pollerPluginId())) {
-                    Map materialConfiguration = (Map) material.get("scm-configuration");
-                    String url = (String) materialConfiguration.get("url");
-
+                String url = parseMaterial((Map) materialRevision.get("material"));
+                if (url != null) {
                     List<Map> modifications = (List<Map>) materialRevision.get("modifications");
                     String revision = (String) modifications.get(0).get("revision");
                     Map modificationData = (Map) modifications.get(0).get("data");
@@ -188,8 +185,33 @@ public abstract class BuildStatusNotifierPlugin implements GoPlugin {
         return renderJSON(responseCode, response);
     }
 
-    private boolean isMaterialOfType(Map material, String pollerPluginId) {
-        return ((String) material.get("type")).equalsIgnoreCase("scm") && ((String) material.get("plugin-id")).equalsIgnoreCase(pollerPluginId);
+    private String parseMaterial(Map material) {
+        String hostNameSearch = provider.pollerCheckHostName();
+        String materialType = ((String) material.get("type")).toLowerCase(Locale.ROOT);
+        Map materialConfiguration;
+        switch (materialType) {
+            case "scm":
+                materialConfiguration = (Map) material.get("scm-configuration");
+                break;
+            case "git":
+                if (hostNameSearch == null)
+                    // Non-plugin materials are only processed with hostNameSearch.
+                    return null;
+                materialConfiguration = (Map) material.get("git-configuration");
+                break;
+            default:
+                // Nothing to do, return blank material.
+                return null;
+        }
+        String url = (String) materialConfiguration.get("url");
+        if (hostNameSearch == null) {
+            if (((String) material.get("plugin-id")).equalsIgnoreCase(provider.pollerPluginId()))
+                return url;
+        } else {
+            if (url.contains(hostNameSearch))
+                return url;
+        }
+        return null;
     }
 
     private GoPluginIdentifier getGoPluginIdentifier() {

@@ -27,6 +27,10 @@ public interface Provider {
 
     public String pollerPluginId();
 
+    default public String pollerCheckHostName() {
+        return null;
+    }
+
     public void updateStatus(String url, PluginSettings pluginSettings, String branch, String revision, String pipelineStage,
                              String result, String trackbackURL) throws Exception;
 
