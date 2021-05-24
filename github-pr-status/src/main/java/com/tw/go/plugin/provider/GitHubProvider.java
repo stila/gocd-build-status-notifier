@@ -24,7 +24,10 @@ import org.kohsuke.github.GHCommitState;
 import org.kohsuke.github.GHRepository;
 import org.kohsuke.github.GitHub;
 import org.kohsuke.github.GitHubBuilder;
+import org.kohsuke.github.authorization.OrgAppInstallationAuthorizationProvider;
+import org.kohsuke.github.extras.authorization.JWTTokenProvider;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +37,7 @@ public class GitHubProvider extends DefaultProvider {
     public static final String PLUGIN_ID = "github.pr.status";
     public static final String GITHUB_PR_POLLER_PLUGIN_ID = "github.pr";
     public static final String GITHUB_HOST_PATTERN = "github.com";
+    public static final String JWT_PRIVATE_KEY = System.getProperty("user.home") + "/.ssh/jwt_key";
 
     public GitHubProvider() {
         super(new DefaultPluginConfigurationView());
@@ -114,8 +118,12 @@ public class GitHubProvider extends DefaultProvider {
             if (endPointIsAvailable(endPointToUse)) {
                 github = GitHub.connectUsingOAuth(endPointToUse, oauthAccessTokenToUse);
             } else {
-                github = new GitHubBuilder().withAppInstallationToken(oauthAccessTokenToUse).build();
+                github = GitHub.connectUsingOAuth(oauthAccessTokenToUse);
             }
+        }
+        if (appAuthIsAvailable(usernameToUse, endPointToUse)) {
+            JWTTokenProvider jwt = new JWTTokenProvider(endPointToUse, new File(JWT_PRIVATE_KEY));
+            github = new GitHubBuilder().withAuthorizationProvider(new OrgAppInstallationAuthorizationProvider(usernameToUse, jwt)).build();
         }
         if (github == null) {
             github = GitHub.connect();
@@ -166,5 +174,10 @@ public class GitHubProvider extends DefaultProvider {
 
     private boolean isEmpty(String str) {
         return str == null || str.trim().isEmpty();
+    }
+
+    private boolean appAuthIsAvailable(String usernameToUse, String endPointToUse) {
+        LOGGER.info("Looking for %s", JWT_PRIVATE_KEY);
+        return !isEmpty(usernameToUse) && !isEmpty(endPointToUse) && new File(JWT_PRIVATE_KEY).exists();
     }
 }
