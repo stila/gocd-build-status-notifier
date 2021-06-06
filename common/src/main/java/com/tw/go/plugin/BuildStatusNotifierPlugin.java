@@ -146,28 +146,30 @@ public abstract class BuildStatusNotifierPlugin implements GoPlugin {
             Map pipeline = (Map) dataMap.get("pipeline");
             Map stage = (Map) pipeline.get("stage");
 
-            String pipelineStage = String.format("%s/%s", pipeline.get("name"), stage.get("name"));
-            String pipelineInstance = String.format("%s/%s/%s/%s", pipeline.get("name"), pipeline.get("counter"), stage.get("name"), stage.get("counter"));
-            String trackbackURL = String.format("%s/go/pipelines/%s", serverBaseURLToUse, pipelineInstance);
-            String result = (String) stage.get("result");
+            if (stageFilter(stage)) {
+                String pipelineStage = String.format("%s/%s", pipeline.get("name"), stage.get("name"));
+                String pipelineInstance = String.format("%s/%s/%s/%s", pipeline.get("name"), pipeline.get("counter"), stage.get("name"), stage.get("counter"));
+                String trackbackURL = String.format("%s/go/pipelines/%s", serverBaseURLToUse, pipelineInstance);
+                String result = (String) stage.get("result");
 
-            List<Map> materialRevisions = (List<Map>) pipeline.get("build-cause");
-            for (Map materialRevision : materialRevisions) {
-                String url = parseMaterial((Map) materialRevision.get("material"));
-                if (url != null) {
-                    List<Map> modifications = (List<Map>) materialRevision.get("modifications");
-                    String revision = (String) modifications.get(0).get("revision");
-                    Map modificationData = (Map) modifications.get(0).get("data");
-                    String prId = (String) modificationData.get("PR_ID");
+                List<Map> materialRevisions = (List<Map>) pipeline.get("build-cause");
+                for (Map materialRevision : materialRevisions) {
+                    String url = parseMaterial((Map) materialRevision.get("material"));
+                    if (url != null) {
+                        List<Map> modifications = (List<Map>) materialRevision.get("modifications");
+                        String revision = (String) modifications.get(0).get("revision");
+                        Map modificationData = (Map) modifications.get(0).get("data");
+                        String prId = (String) modificationData.get("PR_ID");
 
-                    if (StringUtils.isEmpty(prId)) {
-                        prId = (String) modificationData.get("CURRENT_BRANCH");
-                    }
+                        if (StringUtils.isEmpty(prId)) {
+                            prId = (String) modificationData.get("CURRENT_BRANCH");
+                        }
 
-                    try {
-                        provider.updateStatus(url, pluginSettings, prId, revision, pipelineStage, result, trackbackURL);
-                    } catch (Exception e) {
-                        LOGGER.error(String.format("Error occurred. Could not update build status - URL: %s Revision: %s Build: %s Result: %s", url, revision, pipelineInstance, result), e);
+                        try {
+                            provider.updateStatus(url, pluginSettings, prId, revision, pipelineStage, result, trackbackURL);
+                        } catch (Exception e) {
+                            LOGGER.error(String.format("Error occurred. Could not update build status - URL: %s Revision: %s Build: %s Result: %s", url, revision, pipelineInstance, result), e);
+                        }
                     }
                 }
             }
@@ -270,5 +272,11 @@ public abstract class BuildStatusNotifierPlugin implements GoPlugin {
                 return json;
             }
         };
+    }
+
+    // Allow status to be reported on only a subset of the stages.
+    private boolean stageFilter(Map stage) {
+        // TODO: Make configurable and optional.
+        return "main".equals(stage.get("name"));
     }
 }
