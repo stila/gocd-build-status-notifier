@@ -61,7 +61,7 @@ public class GitHubProvider extends DefaultProvider {
     @Override
     public void updateStatus(String url, PluginSettings pluginSettings, String prIdStr, String revision, String pipelineStage,
                              String result, String trackbackURL) throws Exception {
-        LOGGER.info("Updating status for '%s' to %s", url, result);
+        LOGGER.info(String.format("Updating status for '%s' to %s", url, result));
 
         String repository = getRepository(url);
         GHCommitState state = getState(result);
@@ -96,7 +96,8 @@ public class GitHubProvider extends DefaultProvider {
 
     void updateCommitStatus(String revision, String pipelineStage, String trackbackURL, String repository, GHCommitState state,
                             String usernameToUse, String passwordToUse, String oauthAccessTokenToUse, String endPointToUse) throws Exception {
-        LOGGER.info("Updating commit status for '%s' on '%s'", revision, pipelineStage);
+        LOGGER.info(String.format("Updating commit status for '%s' on '%s'", revision,
+                pipelineStage));
 
         GitHub github = createGitHubClient(usernameToUse, passwordToUse, oauthAccessTokenToUse, endPointToUse);
         GHRepository ghRepository = github.getRepository(repository);
@@ -132,7 +133,7 @@ public class GitHubProvider extends DefaultProvider {
     }
 
     public String getRepository(String url) {
-        LOGGER.info("Getting repository '%s'", url);
+        LOGGER.info(String.format("Getting repository '%s'", url));
 
         String[] urlParts = url.split("/");
         String repo = urlParts[urlParts.length - 1];
