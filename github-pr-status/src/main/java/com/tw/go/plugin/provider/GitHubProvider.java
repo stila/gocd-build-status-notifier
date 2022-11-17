@@ -32,6 +32,7 @@ public class GitHubProvider extends DefaultProvider {
     private static Logger LOGGER = Logger.getLoggerFor(GitHubProvider.class);
     public static final String PLUGIN_ID = "github.pr.status";
     public static final String GITHUB_PR_POLLER_PLUGIN_ID = "github.pr";
+    public static final String GITHUB_HOST_PATTERN = "github.com";
 
     public GitHubProvider() {
         super(new DefaultPluginConfigurationView());
@@ -48,9 +49,14 @@ public class GitHubProvider extends DefaultProvider {
     }
 
     @Override
+    public String pollerCheckHostName() {
+        return GITHUB_HOST_PATTERN;
+    }
+
+    @Override
     public void updateStatus(String url, PluginSettings pluginSettings, String prIdStr, String revision, String pipelineStage,
                              String result, String trackbackURL) throws Exception {
-        LOGGER.info("Updating status for '%s' to %s", url, result);
+        LOGGER.info(String.format("Updating status for '%s' to %s", url, result));
 
         String repository = getRepository(url);
         GHCommitState state = getState(result);
@@ -85,7 +91,7 @@ public class GitHubProvider extends DefaultProvider {
 
     void updateCommitStatus(String revision, String pipelineStage, String trackbackURL, String repository, GHCommitState state,
                             String usernameToUse, String passwordToUse, String oauthAccessTokenToUse, String endPointToUse) throws Exception {
-        LOGGER.info("Updating commit status for '%s' on '%s'", revision, pipelineStage);
+        LOGGER.info(String.format("Updating commit status for '%s' on '%s'", revision, pipelineStage));
 
         GitHub github = createGitHubClient(usernameToUse, passwordToUse, oauthAccessTokenToUse, endPointToUse);
         GHRepository ghRepository = github.getRepository(repository);
@@ -93,7 +99,7 @@ public class GitHubProvider extends DefaultProvider {
     }
 
     GitHub createGitHubClient(String usernameToUse, String passwordToUse, String oauthAccessTokenToUse, String endPointToUse) throws Exception {
-        LOGGER.info("Creating GitHub client"); 
+        LOGGER.info(String.format("Creating GitHub client: username '%s', endpoint: '%s'.", usernameToUse, endPointToUse));
 
         GitHub github = null;
         if (usernameAndPasswordIsAvailable(usernameToUse, passwordToUse)) {
@@ -104,20 +110,24 @@ public class GitHubProvider extends DefaultProvider {
             }
         }
         if (oAuthTokenIsAvailable(oauthAccessTokenToUse)) {
+            String loggableTokenEnding = oauthAccessTokenToUse.substring(oauthAccessTokenToUse.length() - 5);
             if (endPointIsAvailable(endPointToUse)) {
+                LOGGER.info(String.format("Using access token (with endpoint) ending in: '%s'", loggableTokenEnding));
                 github = GitHub.connectUsingOAuth(endPointToUse, oauthAccessTokenToUse);
             } else {
+                LOGGER.info(String.format("Using access token (without endpoint) ending in: '%s'", loggableTokenEnding));
                 github = GitHub.connectUsingOAuth(oauthAccessTokenToUse);
             }
         }
         if (github == null) {
+            LOGGER.info("No plugin-specific auth provided. Using either environment variables or ~/.github.");
             github = GitHub.connect();
         }
         return github;
     }
 
     public String getRepository(String url) {
-        LOGGER.info("Getting repository '%s'", url);
+        LOGGER.info(String.format("Getting repository '%s'", url));
 
         String[] urlParts = url.split("/");
         String repo = urlParts[urlParts.length - 1];
@@ -128,6 +138,7 @@ public class GitHubProvider extends DefaultProvider {
         }
 
         String urlWithoutPrefix = String.format("%s/%s", usernameWithSSHPrefix, repo);
+        LOGGER.info(String.format("URL without prefix: '%s'", urlWithoutPrefix));
         if (urlWithoutPrefix.endsWith(".git")) return urlWithoutPrefix.substring(0, urlWithoutPrefix.length() - 4);
         else return urlWithoutPrefix;
     }

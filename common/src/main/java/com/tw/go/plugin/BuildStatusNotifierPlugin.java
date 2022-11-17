@@ -151,26 +151,25 @@ public abstract class BuildStatusNotifierPlugin implements GoPlugin {
             String trackbackURL = String.format("%s/go/pipelines/%s", serverBaseURLToUse, pipelineInstance);
             String result = (String) stage.get("result");
 
-            List<Map> materialRevisions = (List<Map>) pipeline.get("build-cause");
-            for (Map materialRevision : materialRevisions) {
-                Map material = (Map) materialRevision.get("material");
-                if (isMaterialOfType(material, provider.pollerPluginId())) {
-                    Map materialConfiguration = (Map) material.get("scm-configuration");
-                    String url = (String) materialConfiguration.get("url");
+            if (stageFilter(stage)) {
+                List<Map> materialRevisions = (List<Map>) pipeline.get("build-cause");
+                for (Map materialRevision : materialRevisions) {
+                    String url = parseMaterial((Map) materialRevision.get("material"));
+                    if (url != null) {
+                        List<Map> modifications = (List<Map>) materialRevision.get("modifications");
+                        String revision = (String) modifications.get(0).get("revision");
+                        Map modificationData = (Map) modifications.get(0).get("data");
+                        String prId = (String) modificationData.get("PR_ID");
 
-                    List<Map> modifications = (List<Map>) materialRevision.get("modifications");
-                    String revision = (String) modifications.get(0).get("revision");
-                    Map modificationData = (Map) modifications.get(0).get("data");
-                    String prId = (String) modificationData.get("PR_ID");
+                        if (StringUtils.isEmpty(prId)) {
+                            prId = (String) modificationData.get("CURRENT_BRANCH");
+                        }
 
-                    if (StringUtils.isEmpty(prId)) {
-                        prId = (String) modificationData.get("CURRENT_BRANCH");
-                    }
-
-                    try {
-                        provider.updateStatus(url, pluginSettings, prId, revision, pipelineStage, result, trackbackURL);
-                    } catch (Exception e) {
-                        LOGGER.error(String.format("Error occurred. Could not update build status - URL: %s Revision: %s Build: %s Result: %s", url, revision, pipelineInstance, result), e);
+                        try {
+                            provider.updateStatus(url, pluginSettings, prId, revision, pipelineStage, result, trackbackURL);
+                        } catch (Exception e) {
+                            LOGGER.error(String.format("Error occurred. Could not update build status - URL: %s Revision: %s Build: %s Result: %s", url, revision, pipelineInstance, result), e);
+                        }
                     }
                 }
             }
@@ -188,8 +187,33 @@ public abstract class BuildStatusNotifierPlugin implements GoPlugin {
         return renderJSON(responseCode, response);
     }
 
-    private boolean isMaterialOfType(Map material, String pollerPluginId) {
-        return ((String) material.get("type")).equalsIgnoreCase("scm") && ((String) material.get("plugin-id")).equalsIgnoreCase(pollerPluginId);
+    private String parseMaterial(Map material) {
+        String hostNameSearch = provider.pollerCheckHostName();
+        String materialType = ((String) material.get("type")).toLowerCase(Locale.ROOT);
+        Map materialConfiguration;
+        switch (materialType) {
+            case "scm":
+                materialConfiguration = (Map) material.get("scm-configuration");
+                break;
+            case "git":
+                if (hostNameSearch == null)
+                    // Non-plugin materials are only processed with hostNameSearch.
+                    return null;
+                materialConfiguration = (Map) material.get("git-configuration");
+                break;
+            default:
+                // Nothing to do, return blank material.
+                return null;
+        }
+        String url = (String) materialConfiguration.get("url");
+        if (hostNameSearch == null) {
+            if (((String) material.get("plugin-id")).equalsIgnoreCase(provider.pollerPluginId()))
+                return url;
+        } else {
+            if (url.contains(hostNameSearch))
+                return url;
+        }
+        return null;
     }
 
     private GoPluginIdentifier getGoPluginIdentifier() {
@@ -248,5 +272,10 @@ public abstract class BuildStatusNotifierPlugin implements GoPlugin {
                 return json;
             }
         };
+    }
+
+    // Allow status to be reported on only a subset of the stages.
+    private boolean stageFilter(Map stage) {
+        return "main".equals(stage.get("name"));
     }
 }
